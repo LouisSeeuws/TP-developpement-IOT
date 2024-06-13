@@ -6,7 +6,7 @@ const hub = mqtt.connect("mqtt://test.mosquitto.org", {clientId:"mqtt-hub"});
 const uri = "mongodb+srv://yann59496:fXpgVVJbetMm1HBp@clusterefficomiot.0l8uhon.mongodb.net/";
 const mongobdd = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true });
 
-let Topics = [{name:"Time",turn:0,item:null,bdd:null}]
+let Topics = [{name:"Time",turn:0,item:null,bdd:null},{name:"Count",turn:0,item:null,bdd:null}]
 let clients = [];
 
 let interval;
@@ -25,15 +25,12 @@ hub.on('connect', async () => {
         hub.subscribe("Hub_Client-UnSubscribe");
         hub.subscribe("Hub_Client-Response");
 
-        clis = [{id:0,topic:"Time"},{id:1,topic:"Date"},{id:2,topic:"Date"},{id:3,topic:"Time"}]
-        clis2 = [{id:0,topic:"Time"},{id:3,topic:"Time"}]
-
         interval = setInterval(async () => {    //tente d'envoyer les data des différents topics toutes les 2sec
             Topics.forEach(async (topicItem) => {
                 const topicClients = clients.filter((c)=>c.topic == topicItem.name);
                 const client = topicClients.find((c,index) => index == topicItem.turn);
                 if (client) {
-                    console.log('client',client.id,topicItem.turn)
+                    // console.log('client',client.id,topicItem.turn)
                     if (!topicItem.item) {
                         try {
                             topicItem.item = await topicItem.bdd.findOne();
@@ -41,19 +38,21 @@ hub.on('connect', async () => {
                             console.error(`Erreur lors du find ${topicItem.name} dans MongoDB ou de sa publication`, e);
                         }
                     }
-                    if (topicItem.item && client.count == 0) {
-                        console.log(`publish topic: ${topicItem.item.topic}, value: ${topicItem.item.value.toString()}`)
-                        hub.publish(`Client${client.id}_${topicItem.item.topic}`, topicItem.item.value.toString());
-                    } else {
-                        console.log(`topic: ${topicItem.name} vide`)
-                    }
-                    client.count++
-                    if (client.count > 3) {   // 6sec sans réponse du client = on passe au client suivant
-                        clients = clients.filter((c) => c.id != client.id);
-                        topicItem.turn++;
-                        if (topicItem.turn+1 > topicClients.length) {   // retourne au début de la liste si dépasse la longueur de la liste
-                            topicItem.turn = 0;
+                    if (topicItem.item) {
+                        if (client.count == 0) {
+                            console.log(`Published,     topic: ${topicItem.item.topic} = ${topicItem.item.value.toString()} to client ${client.id}`)
+                            hub.publish(`Client${client.id}_${topicItem.item.topic}`, topicItem.item.value.toString());
                         }
+                        client.count++
+                        if (client.count > 3) {   // 6sec sans réponse du client = on passe au client suivant
+                            clients = clients.filter((c) => c.id != client.id);
+                            topicItem.turn++;
+                            if (topicItem.turn+1 > topicClients.length) {   // retourne au début de la liste si dépasse la longueur de la liste
+                                topicItem.turn = 0;
+                            }
+                        }
+                    } else {
+                        console.log(`Not published, topic: ${topicItem.name} = null`)
                     }
                 }
             });
@@ -79,7 +78,7 @@ hub.on('message', async (topic, value) => {
             const result = await topic.bdd.deleteOne({ _id: objectId });
 
             if (result.deletedCount === 1) {
-                // console.log(`Successfully deleted the document with _id: ${topic.item._id}`);
+                // console.log(`Successfully deleted the item: ${topic.item.value}`);
                 topic.item=null;
                 client.count=0;
 
@@ -99,7 +98,7 @@ hub.on('message', async (topic, value) => {
         if (topic == `Hub_${topicItem.name}`) {
             try {
                 const result = await topicItem.bdd.insertOne({topic:topicItem.name,value:value.toString()});
-                console.log(`Message inséré avec l'ID: ${result.insertedId}`);
+                // console.log(`Message inséré avec l'ID: ${result.insertedId}`);
             } catch (e) {
                 console.error('Erreur lors de l\'insertion du message dans MongoDB:', e);
             }
