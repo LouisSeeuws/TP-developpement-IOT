@@ -1,27 +1,31 @@
 var mqtt = require('mqtt');
+var client1 = mqtt.connect("mqtt://test.mosquitto.org", {clientId:"mqtt-client1"});
 
-var client = mqtt.connect("mqtt://test.mosquitto.org", {clientId:"mqtt-tester"});
+client1.on('connect', function() {
+    console.log("Client 1 connecté");
+    client1.publish("Hub_Client-Subscribe", "1_Time");
+    client1.subscribe("Client1_Time");
+});
 
-var topics = ["film1", "film2", "film3"];
-var currentState = 0;
-
-client.on('message', function(topic, message) {
-    console.log("Received message from " + topic + " : " + message.toString());
-
-    if (message.toString() === "OK" + topics[currentState]) {
-        console.log("Received expected response for " + topics[currentState]);
-        currentState++;
-        if (currentState < topics.length) {
-            console.log("Sending request for " + topics[currentState]);
-            client.publish(topics[currentState], "Request for " + topics[currentState]);
-        }
+client1.on('message', function(topic, message) {
+    if (topic == "Client1_Time") {
+        console.log('time is :',message.toString())
+        client1.publish("Hub_Client-Response", '1');
     }
 });
 
-client.on('connect', function() {
-    console.log("Connected");
-    console.log("Sending request for " + topics[currentState]);
-    client.publish(topics[currentState], "Request for " + topics[currentState]);
+client1.on('error', (err) => {
+    console.error('Erreur MQTT Client1:', err);
 });
 
-client.subscribe(topics[currentState]);
+client1.on('SIGINT', () => {
+    console.log("déconnexion Client1");
+    client1.publish("Hub_Client-UnSubscribe", "1");
+    process.exit(0);
+});
+
+client1.on('SIGTERM', () => {
+    console.log("déconnexion Client1");
+    client1.publish("Hub_Client-UnSubscribe", "1");
+    process.exit(0);
+});

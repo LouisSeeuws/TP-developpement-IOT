@@ -1,38 +1,36 @@
 const mqtt = require('mqtt');
-const { MongoClient } = require('mongodb');
 
-const mqttClient = mqtt.connect("mqtt://test.mosquitto.org", {clientId:"mqtt-tester"});
-//mongodb+srv://lseeuws:lseeuws@lseeuwsiot.u1m4c8l.mongodb.net/
-const uri = "mongodb+srv://lseeuws:lseeuws@lseeuwsiot.u1m4c8l.mongodb.net/";
-const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true });
+const publisher = mqtt.connect("mqtt://test.mosquitto.org", {clientId:"mqtt-publisher"});
 
-mqttClient.on('connect', async () => {
-    console.log('Connecté au broker MQTT');
-    try{
-        await client.connect();
-        const database = client.db('lseeuwsIOT');
-        const collection = database.collection('messages');
-        try {
-            const doc = {
-                topic: "Topic Test",
-                value: new Date(),
-            };
-            const result = await collection.insertOne(doc);
-            console.log(`Message inséré avec l'ID: ${result.insertedId}`);
-        } catch (e) {
-            console.error('Erreur lors de l\'insertion du message dans MongoDB:', e);
-        }
-    } catch (e) {
-        console.error('Erreur lors de la connexion avec MongoDB:', e);
-    } finally {
-        await client.close();
-    }
+const convertToTime = (dateTime) => {
+    if(dateTime.toString() === 'Invalid Date') return '00:00';
+    let hours = (dateTime.getHours() < 10) ? `0${dateTime.getHours()}` : dateTime.getHours();
+    let min = (dateTime.getMinutes() < 10) ? `0${dateTime.getMinutes()}` : dateTime.getMinutes();
+    let sec = (dateTime.getSeconds() < 10) ? `0${dateTime.getSeconds()}` : dateTime.getSeconds();
+    return `${hours}:${min}:${sec}`
+}
+
+let interval;
+
+publisher.on('connect', () => {
+    console.log('Publisher connecté');
+    interval = setInterval(() => {
+        publisher.publish("Hub_Time", convertToTime(new Date));
+    }, 5000);
 });
 
-mqttClient.on('message', async (topic, value) => {
-    console.log(`Message reçu sur le topic ${topic}: ${value.toString()}`);
+publisher.on('error', (err) => {
+    console.error('Erreur MQTT Publisher:', err);
 });
 
-mqttClient.on('error', (err) => {
-    console.error('Erreur MQTT:', err);
+publisher.on('SIGINT', () => {
+    console.log("Fermeture publisher interval");
+    interval && clearInterval(interval)
+    process.exit(0);
+});
+
+publisher.on('SIGTERM', () => {
+    console.log("Fermeture publisher interval");
+    interval && clearInterval(interval)
+    process.exit(0);
 });
