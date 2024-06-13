@@ -37,19 +37,19 @@ hub.on('connect', async () => {
                     if (!topicItem.item) {
                         try {
                             topicItem.item = await topicItem.bdd.findOne();
-                            if (topicItem.item) {
-                                console.log(`publish topic: ${topicItem.item.topic}, value: ${topicItem.item.value.toString()}`)
-                                hub.publish(`Client${client.id}_${topicItem.item.topic}`, topicItem.item.value.toString());
-                            } else {
-                                console.log(`topic: ${topicItem.name} vide`)
-                            }
                         } catch (e) {
                             console.error(`Erreur lors du find ${topicItem.name} dans MongoDB ou de sa publication`, e);
                         }
                     }
+                    if (topicItem.item && client.count == 0) {
+                        console.log(`publish topic: ${topicItem.item.topic}, value: ${topicItem.item.value.toString()}`)
+                        hub.publish(`Client${client.id}_${topicItem.item.topic}`, topicItem.item.value.toString());
+                    } else {
+                        console.log(`topic: ${topicItem.name} vide`)
+                    }
                     client.count++
-                    if (client.count > 2) {   // 4sec sans réponse du client = on passe au client suivant
-                        client.count = 0;
+                    if (client.count > 3) {   // 6sec sans réponse du client = on passe au client suivant
+                        clients = clients.filter((c) => c.id != client.id);
                         topicItem.turn++;
                         if (topicItem.turn+1 > topicClients.length) {   // retourne au début de la liste si dépasse la longueur de la liste
                             topicItem.turn = 0;
@@ -69,6 +69,7 @@ hub.on('message', async (topic, value) => {
         const data = value.toString().split('_');
         clients.push({id: parseInt(data[0]), topic: data[1], count: 0});
     } else if (topic == "Hub_Client-UnSubscribe") {
+        console.warn('unsubscribe',value.toString())
         clients = clients.filter((c) => c.id != parseInt(value));
     } else if (topic == "Hub_Client-Response") {        //suprime les datas reçu par un client
         try {
@@ -81,6 +82,12 @@ hub.on('message', async (topic, value) => {
                 // console.log(`Successfully deleted the document with _id: ${topic.item._id}`);
                 topic.item=null;
                 client.count=0;
+
+                const topicClients = clients.filter((c)=>c.topic == topic.name);
+                topic.turn++;
+                if (topic.turn+1 > topicClients.length) {   // retourne au début de la liste si dépasse la longueur de la liste
+                    topic.turn = 0;
+                }
             } else {
                 console.error(`No document found with _id: ${id}`);
             }
