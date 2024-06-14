@@ -1,6 +1,6 @@
 const mqtt = require('mqtt');
 
-const publisher2 = mqtt.connect("mqtt://test.mosquitto.org", {clientId:"mqtt-publisher2"});
+const publisher2 = mqtt.connect("mqtt://test.mosquitto.org", {clientId:"mqtt-YL-publisher2"});
 
 let interval;
 
@@ -9,7 +9,7 @@ let count = 0;
 publisher2.on('connect', () => {
     console.log('Publisher 2 connecté');
     interval = setInterval(() => {
-        publisher2.publish("Hub_Count", count.toString());
+        publisher2.publish("Hub_CountY", count.toString());
         count++
     }, 5000);
 });

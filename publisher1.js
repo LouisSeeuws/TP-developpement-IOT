@@ -1,6 +1,6 @@
 const mqtt = require('mqtt');
 
-const publisher1 = mqtt.connect("mqtt://test.mosquitto.org", {clientId:"mqtt-publisher1"});
+const publisher1 = mqtt.connect("mqtt://test.mosquitto.org", {clientId:"mqtt-YL-publisher1"});
 
 const convertToTime = (dateTime) => {
     if(dateTime.toString() === 'Invalid Date') return '00:00';
@@ -15,7 +15,9 @@ let interval;
 publisher1.on('connect', () => {
     console.log('Publisher 1 connecté');
     interval = setInterval(() => {
-        publisher1.publish("Hub_Time", convertToTime(new Date));
+        const time = convertToTime(new Date);
+        console.log('new time',time)
+        publisher1.publish("Hub_TimeY", time);
     }, 5000);
 });
 

@@ -1,7 +1,7 @@
 const mqtt = require('mqtt');
 const { MongoClient, ObjectId  } = require('mongodb');
 
-const hub = mqtt.connect("mqtt://test.mosquitto.org", {clientId:"mqtt-hub"});
+const hub = mqtt.connect("mqtt://test.mosquitto.org", {clientId:"mqtt-YL-hub"});
 // const uri = "mongodb+srv://lseeuws:lseeuws@lseeuwsiot.u1m4c8l.mongodb.net/";
 const uri = "mongodb+srv://yann59496:fXpgVVJbetMm1HBp@clusterefficomiot.0l8uhon.mongodb.net/";
 const mongobdd = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true });
@@ -18,12 +18,12 @@ hub.on('connect', async () => {
         const database = mongobdd.db('bddIOT');
         Topics.forEach(topic => {
             topic.bdd = database.collection(`${topic.name}s`);
-            hub.subscribe(`Hub_${topic.name}`);
+            hub.subscribe(`Hub_${topic.name}Y`);
         });
 
-        hub.subscribe("Hub_Client-Subscribe");
-        hub.subscribe("Hub_Client-UnSubscribe");
-        hub.subscribe("Hub_Client-Response");
+        hub.subscribe("Hub_Client-SubscribeY");
+        hub.subscribe("Hub_Client-UnSubscribeY");
+        hub.subscribe("Hub_Client-ResponseY");
 
         interval = setInterval(async () => {    //tente d'envoyer les data des différents topics toutes les 2sec
             Topics.forEach(async (topicItem) => {
@@ -41,7 +41,7 @@ hub.on('connect', async () => {
                     if (topicItem.item) {
                         if (client.count == 0) {
                             console.log(`Published,     topic: ${topicItem.item.topic} = ${topicItem.item.value.toString()} to client ${client.id}`)
-                            hub.publish(`Client${client.id}_${topicItem.item.topic}`, topicItem.item.value.toString());
+                            hub.publish(`Client${client.id}_${topicItem.item.topic}Y`, topicItem.item.value.toString());
                         }
                         client.count++
                         if (client.count > 3) {   // 6sec sans réponse du client = on passe au client suivant
@@ -64,41 +64,46 @@ hub.on('connect', async () => {
 });
 
 hub.on('message', async (topic, value) => {
-    if (topic == "Hub_Client-Subscribe") {
+    console.log('received',topic,value.toString())
+    if (topic == "Hub_Client-SubscribeY") {
         const data = value.toString().split('_');
         clients.push({id: parseInt(data[0]), topic: data[1], count: 0});
-    } else if (topic == "Hub_Client-UnSubscribe") {
+    } else if (topic == "Hub_Client-UnSubscribeY") {
         console.warn('unsubscribe',value.toString())
         clients = clients.filter((c) => c.id != parseInt(value));
-    } else if (topic == "Hub_Client-Response") {        //suprime les datas reçu par un client
+    } else if (topic == "Hub_Client-ResponseY") {        //suprime les datas reçu par un client
         try {
             let client = clients.find((c) => c.id == parseInt(value));
             let topic = Topics.find((t) => t.name == client.topic);
-            const objectId = new ObjectId(topic.item._id);
-            const result = await topic.bdd.deleteOne({ _id: objectId });
+            if (topic.item) {
+                const objectId = new ObjectId(topic.item._id);
+                const result = await topic.bdd.deleteOne({ _id: objectId });
 
-            if (result.deletedCount === 1) {
-                // console.log(`Successfully deleted the item: ${topic.item.value}`);
-                topic.item=null;
-                client.count=0;
+                // console.log('test',client.id,topic.item)
 
-                const topicClients = clients.filter((c)=>c.topic == topic.name);
-                topic.turn++;
-                if (topic.turn+1 > topicClients.length) {   // retourne au début de la liste si dépasse la longueur de la liste
-                    topic.turn = 0;
+                if (result.deletedCount === 1) {
+                    // console.log(`Successfully deleted the item: ${topic.item.value}`);
+                    topic.item=null;
+                    client.count=0;
+
+                    const topicClients = clients.filter((c)=>c.topic == topic.name);
+                    topic.turn++;
+                    if (topic.turn+1 > topicClients.length) {   // retourne au début de la liste si dépasse la longueur de la liste
+                        topic.turn = 0;
+                    }
+                } else {
+                    console.error(`No document found with _id: ${id}`);
                 }
-            } else {
-                console.error(`No document found with _id: ${id}`);
             }
         } catch (e) {
             console.error("Erreur lors de la suppression de l'item dans MongoDB:", e);
         }
     }
     Topics.forEach(async (topicItem) => {       //enregistre le data à la reception
-        if (topic == `Hub_${topicItem.name}`) {
+        if (topic == `Hub_${topicItem.name}Y`) {
             try {
                 const result = await topicItem.bdd.insertOne({topic:topicItem.name,value:value.toString()});
-                // console.log(`Message inséré avec l'ID: ${result.insertedId}`);
+                console.log(`Message ${value.toString()} inséré avec l'ID: ${result.insertedId}`);
             } catch (e) {
                 console.error('Erreur lors de l\'insertion du message dans MongoDB:', e);
             }
