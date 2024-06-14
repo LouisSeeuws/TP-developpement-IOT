@@ -1,6 +1,6 @@
 const mqtt = require('mqtt');
 
-const publisher = mqtt.connect("mqtt://test.mosquitto.org", {clientId:"mqtt-publisher"});
+const publisher1 = mqtt.connect("mqtt://test.mosquitto.org", {clientId:"mqtt-publisher1"});
 
 const convertToTime = (dateTime) => {
     if(dateTime.toString() === 'Invalid Date') return '00:00';
@@ -12,25 +12,25 @@ const convertToTime = (dateTime) => {
 
 let interval;
 
-publisher.on('connect', () => {
-    console.log('Publisher connecté');
+publisher1.on('connect', () => {
+    console.log('Publisher 1 connecté');
     interval = setInterval(() => {
-        publisher.publish("Hub_Time", convertToTime(new Date));
+        publisher1.publish("Hub_Time", convertToTime(new Date));
     }, 5000);
 });
 
-publisher.on('error', (err) => {
-    console.error('Erreur MQTT Publisher:', err);
+publisher1.on('error', (err) => {
+    console.error('Erreur MQTT publisher1:', err);
 });
 
-publisher.on('SIGINT', () => {
-    console.log("Fermeture publisher interval");
+publisher1.on('SIGINT', () => {
+    console.log("Fermeture publisher1 interval");
     interval && clearInterval(interval)
     process.exit(0);
 });
 
-publisher.on('SIGTERM', () => {
-    console.log("Fermeture publisher interval");
+publisher1.on('SIGTERM', () => {
+    console.log("Fermeture publisher1 interval");
     interval && clearInterval(interval)
     process.exit(0);
 });
